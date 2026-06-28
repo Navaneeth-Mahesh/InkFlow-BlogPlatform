@@ -1,4 +1,4 @@
-import { Request, Response } from "express";
+import { Request, Response, CookieOptions } from "express";
 import { User } from "../models";
 import { ApiError } from "../utils/ApiError";
 import { ApiResponse } from "../utils/ApiResponse";
@@ -6,7 +6,7 @@ import { asyncHandler } from "../utils/asyncHandler";
 import { generateAccessToken, generateRefreshToken, verifyRefreshToken } from "../utils/token";
 import { env } from "../config/env";
 
-const REFRESH_COOKIE_OPTIONS = {
+const REFRESH_COOKIE_OPTIONS: CookieOptions = {
   httpOnly: true,
   secure: env.isProduction,
   sameSite: env.isProduction ? "none" : "lax",
@@ -52,11 +52,11 @@ export const login = asyncHandler(async (req: Request, res: Response) => {
 
 export const logout = asyncHandler(async (_req: Request, res: Response) => {
   res.clearCookie("refreshToken", {
-  path: "/api/v1/auth",
-  httpOnly: true,
-  secure: env.isProduction,
-  sameSite: env.isProduction ? "none" : "lax",
-});
+    path: "/api/v1/auth",
+    httpOnly: true,
+    secure: env.isProduction,
+    sameSite: env.isProduction ? "none" : "lax",
+  } as CookieOptions);
   res.status(200).json(new ApiResponse(200, "Signed out", null));
 });
 
