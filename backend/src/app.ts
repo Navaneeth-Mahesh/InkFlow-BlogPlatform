@@ -16,14 +16,20 @@ import { setupSwagger } from "./docs/swagger";
 
 export function createApp(): Express {
   const app = express();
-
+  app.set("trust proxy", 1);
+  
   app.use(helmet());
-  app.use(cors({ origin: env.CLIENT_URL, credentials: true }));
-
+  app.use(
+  cors({
+    origin: env.CLIENT_URL,
+    credentials: true,
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE"],
+    allowedHeaders: ["Content-Type", "Authorization"],
+  })
+);
   app.use(express.json({ limit: "2mb" }));
   app.use(express.urlencoded({ extended: true, limit: "2mb" }));
   app.use(cookieParser());
-
   app.use((req, _res, next) => {
     if (req.body) req.body = mongoSanitize.sanitize(req.body);
     if (req.params) req.params = mongoSanitize.sanitize(req.params);
@@ -40,7 +46,12 @@ export function createApp(): Express {
 
   app.use("/api", generalLimiter);
 
-  app.use("/uploads", express.static(path.resolve(process.cwd(), "uploads")));
+if (!env.isProduction) {
+  app.use(
+    "/uploads",
+    express.static(path.resolve(process.cwd(), "uploads"))
+  );
+}
 
   app.get("/health", (_req, res) => {
     res.status(200).json(new ApiResponse(200, "InkFlow API is running", { uptime: process.uptime() }));

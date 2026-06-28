@@ -9,7 +9,7 @@ import { env } from "../config/env";
 const REFRESH_COOKIE_OPTIONS = {
   httpOnly: true,
   secure: env.isProduction,
-  sameSite: "lax" as const,
+  sameSite: env.isProduction ? "none" : "lax",
   path: "/api/v1/auth",
   maxAge: 30 * 24 * 60 * 60 * 1000,
 };
@@ -51,7 +51,12 @@ export const login = asyncHandler(async (req: Request, res: Response) => {
 });
 
 export const logout = asyncHandler(async (_req: Request, res: Response) => {
-  res.clearCookie("refreshToken", { path: "/api/v1/auth" });
+  res.clearCookie("refreshToken", {
+  path: "/api/v1/auth",
+  httpOnly: true,
+  secure: env.isProduction,
+  sameSite: env.isProduction ? "none" : "lax",
+});
   res.status(200).json(new ApiResponse(200, "Signed out", null));
 });
 

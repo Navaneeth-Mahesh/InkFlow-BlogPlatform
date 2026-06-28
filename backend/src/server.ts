@@ -8,8 +8,8 @@ async function bootstrap() {
 
   const app = createApp();
   const server = app.listen(env.PORT, () => {
-    logger.info(`InkFlow API listening on http://localhost:${env.PORT}`);
-    logger.info(`API docs available at http://localhost:${env.PORT}/api/docs`);
+    logger.info(`InkFlow API started on port ${env.PORT}`);
+    logger.info("Swagger docs available at /api/docs");
   });
 
   const shutdown = async (signal: string) => {
