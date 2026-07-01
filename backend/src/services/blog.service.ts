@@ -1,5 +1,5 @@
 import { Types } from "mongoose";
-import { Blog, IBlog } from "../models";
+import { Blog, Category, IBlog } from "../models";
 import { PaginationParams } from "../utils/pagination";
 
 export interface BlogListFilters {
@@ -15,10 +15,31 @@ export type BlogSort = "latest" | "popular" | "discussed" | "trending";
 const AUTHOR_POPULATE = { path: "author", select: "name username bio role followers" };
 const CATEGORY_POPULATE = { path: "category", select: "name slug color" };
 
-function buildFilterQuery(filters: BlogListFilters) {
+async function resolveCategoryFilter(category: string): Promise<Types.ObjectId | string | null> {
+  // The frontend filters by category slug, but Blog.category stores an
+  // ObjectId — resolve slug -> id here so filtering actually matches.
+  // Falls back to treating the value as a raw id for API callers that
+  // already have one.
+  if (Types.ObjectId.isValid(category)) return category;
+  const doc = await Category.findOne({ slug: category }).select("_id");
+  return doc?._id ?? null;
+}
+
+async function buildFilterQuery(filters: BlogListFilters) {
   const query: Record<string, unknown> = {};
   query.status = filters.status ?? "published";
-  if (filters.category) query.category = filters.category;
+
+  if (filters.category) {
+    const categoryId = await resolveCategoryFilter(filters.category);
+    if (!categoryId) {
+      // Unknown category slug/id — return a query that matches nothing
+      // rather than silently ignoring the filter.
+      query._id = { $in: [] };
+    } else {
+      query.category = categoryId;
+    }
+  }
+
   if (filters.author) query.author = filters.author;
   if (filters.tag) query.tags = filters.tag.toLowerCase();
   if (filters.search) query.$text = { $search: filters.search };
@@ -26,7 +47,7 @@ function buildFilterQuery(filters: BlogListFilters) {
 }
 
 export async function listBlogs(filters: BlogListFilters, sort: BlogSort, { skip, limit }: PaginationParams) {
-  const query = buildFilterQuery(filters);
+  const query = await buildFilterQuery(filters);
   const hasTextSearch = Boolean(filters.search);
 
   const sortSpec = hasTextSearch

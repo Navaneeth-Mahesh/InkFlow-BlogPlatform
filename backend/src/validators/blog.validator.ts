@@ -4,7 +4,12 @@ export const createBlogValidator = [
   body("title").trim().notEmpty().withMessage("Title is required").isLength({ max: 160 }),
   body("content").trim().notEmpty().withMessage("Content is required"),
   body("excerpt").optional().trim().isLength({ max: 220 }),
-  body("category").trim().notEmpty().withMessage("Category is required").isMongoId(),
+  body("category")
+    .trim()
+    .notEmpty()
+    .withMessage("Category is required")
+    .isLength({ min: 2, max: 40 })
+    .withMessage("Category must be between 2 and 40 characters"),
   body("tags").optional().isArray({ max: 6 }).withMessage("You can add up to 6 tags"),
   body("coverImage").optional().trim().isString(),
   body("status").optional().isIn(["published", "draft"]),
@@ -15,7 +20,7 @@ export const updateBlogValidator = [
   body("title").optional().trim().isLength({ max: 160 }),
   body("content").optional().trim().notEmpty(),
   body("excerpt").optional().trim().isLength({ max: 220 }),
-  body("category").optional().isMongoId(),
+  body("category").optional().trim().isLength({ min: 2, max: 40 }).withMessage("Category must be between 2 and 40 characters"),
   body("tags").optional().isArray({ max: 6 }),
   body("status").optional().isIn(["published", "draft"]),
 ];

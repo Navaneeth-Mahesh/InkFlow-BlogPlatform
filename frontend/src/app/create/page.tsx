@@ -14,10 +14,7 @@ import { EditorSurface } from "@/components/editor/editor-surface";
 import { CoverImageUpload } from "@/components/editor/cover-image-upload";
 import { CategorySelector, TagInput } from "@/components/editor/category-selector";
 import { PreviewModal } from "@/components/editor/preview-modal";
-import { getCategories } from "@/lib/services";
 import { createBlog } from "@/lib/services/blog.service";
-import { mapCategory } from "@/lib/mappers";
-import { Category } from "@/types";
 import { estimateReadTime } from "@/lib/utils";
 import { toast } from "@/hooks/use-toast";
 import { ApiClientError } from "@/lib/api-client";
@@ -32,17 +29,12 @@ export default function CreateBlogPage() {
   const [excerpt, setExcerpt] = React.useState("");
   const [content, setContent] = React.useState("");
   const [coverImage, setCoverImage] = React.useState<string | null>(null);
-  const [categoryId, setCategoryId] = React.useState<string | null>(null);
+  const [categoryName, setCategoryName] = React.useState("");
   const [tags, setTags] = React.useState<string[]>([]);
   const [previewOpen, setPreviewOpen] = React.useState(false);
   const [saving, setSaving] = React.useState(false);
   const [publishing, setPublishing] = React.useState(false);
   const [titleError, setTitleError] = React.useState("");
-  const [categories, setCategories] = React.useState<Category[]>([]);
-
-  React.useEffect(() => {
-    getCategories().then((raw) => setCategories(raw.map(mapCategory))).catch(() => setCategories([]));
-  }, []);
 
   React.useEffect(() => {
     if (!isAuthLoading && !isAuthenticated) {
@@ -51,7 +43,11 @@ export default function CreateBlogPage() {
     }
   }, [isAuthLoading, isAuthenticated, router]);
 
-  const selectedCategory = categories.find((c) => c.id === categoryId) ?? null;
+  // Synthetic preview-only category — the real one is created/resolved by
+  // the backend from the typed name when the post is actually saved.
+  const previewCategory = categoryName.trim()
+    ? { id: "preview", name: categoryName.trim(), slug: "", color: "#6750E3", postCount: 0 }
+    : null;
   const readTime = estimateReadTime(content);
   const wordCount = content.replace(/<[^>]*>/g, " ").trim().split(/\s+/).filter(Boolean).length;
 
@@ -73,8 +69,8 @@ export default function CreateBlogPage() {
       setTitleError(status === "draft" ? "Give your draft a title before saving." : "Your story needs a title before it can go live.");
       return;
     }
-    if (status === "published" && !categoryId) {
-      toast({ variant: "error", title: "Pick a category", description: "Readers find stories through categories — choose one before publishing." });
+    if (status === "published" && !categoryName.trim()) {
+      toast({ variant: "error", title: "Add a category", description: "Readers find stories through categories — type one before publishing." });
       return;
     }
     if (status === "published" && !content.trim()) {
@@ -90,7 +86,7 @@ export default function CreateBlogPage() {
         title: title.trim(),
         content: content || "<p></p>",
         excerpt: excerpt.trim() || undefined,
-        category: categoryId ?? categories[0]?.id,
+        category: categoryName.trim() || "General",
         tags,
         coverImage: coverImage ?? undefined,
         status,
@@ -167,7 +163,7 @@ export default function CreateBlogPage() {
 
           <div>
             <Label>Category</Label>
-            <CategorySelector selected={categoryId} onChange={setCategoryId} />
+            <CategorySelector value={categoryName} onChange={setCategoryName} />
           </div>
 
           <div>
@@ -211,7 +207,7 @@ export default function CreateBlogPage() {
         </div>
       </div>
 
-      <PreviewModal open={previewOpen} onOpenChange={setPreviewOpen} title={title} content={content} coverImage={coverImage} category={selectedCategory} readTime={readTime} />
+      <PreviewModal open={previewOpen} onOpenChange={setPreviewOpen} title={title} content={content} coverImage={coverImage} category={previewCategory} readTime={readTime} />
     </>
   );
 }

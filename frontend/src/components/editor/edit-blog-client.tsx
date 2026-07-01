@@ -16,10 +16,9 @@ import { EditorSurface } from "@/components/editor/editor-surface";
 import { CoverImageUpload } from "@/components/editor/cover-image-upload";
 import { CategorySelector, TagInput } from "@/components/editor/category-selector";
 import { PreviewModal } from "@/components/editor/preview-modal";
-import { getCategories } from "@/lib/services";
 import { getBlogBySlug, updateBlog, deleteBlog } from "@/lib/services/blog.service";
-import { mapBlog, mapCategory } from "@/lib/mappers";
-import { Post, Category } from "@/types";
+import { mapBlog } from "@/lib/mappers";
+import { Post } from "@/types";
 import { estimateReadTime } from "@/lib/utils";
 import { toast } from "@/hooks/use-toast";
 import { ApiClientError } from "@/lib/api-client";
@@ -74,20 +73,17 @@ function EditBlogForm({ post }: { post: Post }) {
   const [excerpt, setExcerpt] = React.useState(post.excerpt);
   const [content, setContent] = React.useState(post.content);
   const [coverImage, setCoverImage] = React.useState<string | null>(post.coverImage || null);
-  const [categoryId, setCategoryId] = React.useState<string | null>(post.category.id);
+  const [categoryName, setCategoryName] = React.useState(post.category.name);
   const [tags, setTags] = React.useState<string[]>(post.tags);
   const [previewOpen, setPreviewOpen] = React.useState(false);
   const [deleteOpen, setDeleteOpen] = React.useState(false);
   const [saving, setSaving] = React.useState(false);
   const [publishing, setPublishing] = React.useState(false);
   const [deleting, setDeleting] = React.useState(false);
-  const [categories, setCategories] = React.useState<Category[]>([post.category]);
 
-  React.useEffect(() => {
-    getCategories().then((raw) => setCategories(raw.map(mapCategory))).catch(() => {});
-  }, []);
-
-  const selectedCategory = categories.find((c) => c.id === categoryId) ?? post.category;
+  const previewCategory = categoryName.trim()
+    ? { ...post.category, name: categoryName.trim() }
+    : post.category;
   const readTime = estimateReadTime(content);
 
   function handleCommand(cmd: string) {
@@ -106,7 +102,7 @@ function EditBlogForm({ post }: { post: Post }) {
   async function handleSave() {
     setSaving(true);
     try {
-      await updateBlog(post.id, { title, content, excerpt, category: categoryId ?? undefined, tags, coverImage: coverImage ?? undefined });
+      await updateBlog(post.id, { title, content, excerpt, category: categoryName.trim() || undefined, tags, coverImage: coverImage ?? undefined });
       toast({ variant: "success", title: "Changes saved" });
     } catch (err) {
       toast({ variant: "error", title: "Couldn't save changes", description: err instanceof ApiClientError ? err.message : "Please try again." });
@@ -118,7 +114,7 @@ function EditBlogForm({ post }: { post: Post }) {
   async function handleUpdate() {
     setPublishing(true);
     try {
-      const updated = await updateBlog(post.id, { title, content, excerpt, category: categoryId ?? undefined, tags, coverImage: coverImage ?? undefined, status: "published" });
+      const updated = await updateBlog(post.id, { title, content, excerpt, category: categoryName.trim() || undefined, tags, coverImage: coverImage ?? undefined, status: "published" });
       toast({ variant: "success", title: "Story updated", description: "Your changes are live." });
       router.push(`/blog/${updated.slug}`);
     } catch (err) {
@@ -184,7 +180,7 @@ function EditBlogForm({ post }: { post: Post }) {
 
           <div>
             <Label>Category</Label>
-            <CategorySelector selected={categoryId} onChange={setCategoryId} />
+            <CategorySelector value={categoryName} onChange={setCategoryName} />
           </div>
 
           <div>
@@ -217,7 +213,7 @@ function EditBlogForm({ post }: { post: Post }) {
         </div>
       </div>
 
-      <PreviewModal open={previewOpen} onOpenChange={setPreviewOpen} title={title} content={content} coverImage={coverImage} category={selectedCategory} readTime={readTime} />
+      <PreviewModal open={previewOpen} onOpenChange={setPreviewOpen} title={title} content={content} coverImage={coverImage} category={previewCategory} readTime={readTime} />
 
       <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
         <DialogContent className="max-w-sm">

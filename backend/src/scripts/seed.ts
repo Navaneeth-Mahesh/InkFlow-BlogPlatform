@@ -308,8 +308,14 @@ const blogSeed: BlogSeed[] = [
 
 async function seed() {
   await connectDB();
-  console.log("Connected. Clearing existing data (dropping database)...");
-  await mongoose.connection.dropDatabase();
+  console.log("Connected. Clearing existing data (deleting collection documents)...");
+  await Promise.all([
+    User.deleteMany({}),
+    Blog.deleteMany({}),
+    Category.deleteMany({}),
+    Comment.deleteMany({}),
+    Bookmark.deleteMany({}),
+  ]);
 
   console.log("Rebuilding indexes...");
   await Promise.all([

@@ -1,5 +1,5 @@
 import { Request, Response } from "express";
-import { Blog, Bookmark, Category } from "../models";
+import { Blog, Bookmark } from "../models";
 import { ApiError } from "../utils/ApiError";
 import { ApiResponse } from "../utils/ApiResponse";
 import { asyncHandler } from "../utils/asyncHandler";
@@ -7,13 +7,15 @@ import { generateUniqueSlug } from "../utils/slug";
 import { estimateReadTime } from "../utils/readTime";
 import { getPagination, buildMeta } from "../utils/pagination";
 import { getParam } from "../utils/getParam";
+import { findOrCreateCategory } from "../services/category.service";
 import { listBlogs, getTrendingBlogs, getRelatedBlogs, incrementViews, blogPopulateOptions, BlogSort } from "../services/blog.service";
 
 export const createBlog = asyncHandler(async (req: Request, res: Response) => {
   const { title, content, excerpt, category, tags, coverImage, status } = req.body;
 
-  const categoryExists = await Category.exists({ _id: category });
-  if (!categoryExists) throw ApiError.badRequest("Selected category does not exist");
+  // Users can type any category name — it's created on first use rather
+  // than restricted to a pre-seeded list.
+  const categoryDoc = await findOrCreateCategory(category);
 
   const slug = await generateUniqueSlug(Blog, title);
   const readTime = estimateReadTime(content);
@@ -24,7 +26,7 @@ export const createBlog = asyncHandler(async (req: Request, res: Response) => {
     slug,
     content,
     excerpt: excerpt || content.replace(/<[^>]*>/g, " ").trim().slice(0, 180),
-    category,
+    category: categoryDoc._id,
     tags: tags ?? [],
     coverImage: coverImage ?? "",
     author: req.user!.id,
@@ -48,9 +50,8 @@ export const updateBlog = asyncHandler(async (req: Request, res: Response) => {
   const { title, content, excerpt, category, tags, coverImage, status } = req.body;
 
   if (category) {
-    const categoryExists = await Category.exists({ _id: category });
-    if (!categoryExists) throw ApiError.badRequest("Selected category does not exist");
-    blog.category = category;
+    const categoryDoc = await findOrCreateCategory(category);
+    blog.category = categoryDoc._id;
   }
 
   if (title && title !== blog.title) {

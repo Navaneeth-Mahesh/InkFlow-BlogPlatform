@@ -14,7 +14,7 @@ jest.mock("../src/models", () => ({
   },
   Comment: {},
   Bookmark: { deleteMany: jest.fn() },
-  Category: { exists: jest.fn() },
+  Category: { findOne: jest.fn(), create: jest.fn() },
 }));
 
 // eslint-disable-next-line @typescript-eslint/no-var-requires
@@ -34,12 +34,12 @@ function tokenFor(userId: string) {
 
 describe("POST /api/v1/blogs (create)", () => {
   it("rejects an unauthenticated request", async () => {
-    const res = await request(app).post("/api/v1/blogs").send({ title: "A new post", content: "<p>content</p>", category: "64a000000000000000000030" });
+    const res = await request(app).post("/api/v1/blogs").send({ title: "A new post", content: "<p>content</p>", category: "Technology" });
     expect(res.status).toBe(401);
   });
 
-  it("creates a blog when the payload is valid", async () => {
-    Category.exists.mockResolvedValueOnce(true);
+  it("creates a blog using an existing category matched by name", async () => {
+    Category.findOne.mockResolvedValueOnce({ _id: "64a000000000000000000030", name: "Technology", slug: "technology" });
     Blog.exists.mockResolvedValueOnce(false);
     const createdBlog = {
       _id: BLOG_ID,
@@ -53,9 +53,42 @@ describe("POST /api/v1/blogs (create)", () => {
     const res = await request(app)
       .post("/api/v1/blogs")
       .set("Authorization", `Bearer ${tokenFor(OWNER_ID)}`)
-      .send({ title: "A new post", content: "<p>content</p>", category: "64a000000000000000000030" });
+      .send({ title: "A new post", content: "<p>content</p>", category: "Technology" });
 
     expect(res.status).toBe(201);
+    expect(Category.create).not.toHaveBeenCalled();
+  });
+
+  it("creates a brand-new category when the typed name doesn't already exist (issue #1 fix)", async () => {
+    Category.findOne.mockResolvedValueOnce(null);
+    Category.create.mockResolvedValueOnce({ _id: "64a000000000000000000031", name: "Underwater Basket Weaving", slug: "underwater-basket-weaving" });
+    Blog.exists.mockResolvedValueOnce(false);
+    const createdBlog = {
+      _id: BLOG_ID,
+      title: "A custom-category post",
+      slug: "a-custom-category-post",
+      author: OWNER_ID,
+      populate: jest.fn().mockResolvedValue({ _id: BLOG_ID, title: "A custom-category post" }),
+    };
+    Blog.create.mockResolvedValueOnce(createdBlog);
+
+    const res = await request(app)
+      .post("/api/v1/blogs")
+      .set("Authorization", `Bearer ${tokenFor(OWNER_ID)}`)
+      .send({ title: "A custom-category post", content: "<p>content</p>", category: "Underwater Basket Weaving" });
+
+    expect(res.status).toBe(201);
+    expect(Category.create).toHaveBeenCalledWith(
+      expect.objectContaining({ name: "Underwater Basket Weaving", slug: "underwater-basket-weaving" })
+    );
+  });
+
+  it("rejects a category name shorter than 2 characters", async () => {
+    const res = await request(app)
+      .post("/api/v1/blogs")
+      .set("Authorization", `Bearer ${tokenFor(OWNER_ID)}`)
+      .send({ title: "A new post", content: "<p>content</p>", category: "x" });
+    expect(res.status).toBe(400);
   });
 });
 
